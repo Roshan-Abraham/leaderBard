@@ -30,8 +30,10 @@ class DatabaseManager:
     
     def initialize_db(self) -> None:
         """Create database tables if they don't exist."""
-        for table_query in ALL_TABLES:
-            self.db_adapter.execute_query(table_query, fetch_type='none')
+        # Commented out to prevent automatic table creation
+        # for table_query in ALL_TABLES:
+        #     self.db_adapter.execute_query(table_query, fetch_type='none')
+        pass
     
     # User operations
     def add_user(self, username: str, email: str = None, full_name: str = None, 

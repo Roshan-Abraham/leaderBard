@@ -4,7 +4,7 @@ Database schema definitions for the dashboard application.
 
 CREATE_GROUPS_TABLE = """
 CREATE TABLE IF NOT EXISTS groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS user_group (
 
 CREATE_USERS_TABLE = """
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE,
     full_name TEXT,
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE_ACTIVITIES_TABLE = """
 CREATE TABLE IF NOT EXISTS activities (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     user_id INTEGER,
     group_id INTEGER,
     activity_type TEXT NOT NULL,

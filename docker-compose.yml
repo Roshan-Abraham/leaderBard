@@ -7,14 +7,27 @@ services:
       - "8501:8501"
     volumes:
       - ./data:/data
+      - ./database:/app/database
     environment:
-      - DB_PATH=/data/dashboard.db
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=dashboard_user
+      - POSTGRES_PASSWORD=dashboard_password
+      - POSTGRES_DB=dashboard
+      - DB_PATH=/data/dashboard.db  # Keep for backup SQLite option
       # Add any Google Cloud credentials as needed
       # - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/google-credentials.json
     depends_on:
       - db
     restart: unless-stopped
-    command: ["/bin/bash", "-c", "python database/init_db.py && streamlit run app/dashboard.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    command: ["/bin/bash", "-c", "wait-for-it db:5432 -t 60 && streamlit run app/dashboard.py --server.port=8501 --server.address=0.0.0.0"]
 
   # PostgreSQL database
   db:
@@ -29,6 +42,13 @@ services:
       - POSTGRES_USER=dashboard_user
       - POSTGRES_DB=dashboard
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dashboard_user -d dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
 
 volumes:
   postgres_data:

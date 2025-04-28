@@ -1,15 +1,12 @@
 """
-Initialize database by executing the SQL script.
+Execute SQL script for database initialization.
+This script reads the SQL file and executes it using Python's database connection.
 """
 import os
 import sys
 import sqlite3
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-
 
 def get_db_connection():
     """Get database connection based on environment variables."""
@@ -90,12 +87,7 @@ def execute_sql_file(sql_file_path):
     
     print(f"SQL script at {sql_file_path} executed successfully.")
 
-    
-
-
-
-def init_database():
-    """Initialize database with tables and sample data using the SQL script."""
+if __name__ == "__main__":
     # Get SQL file path
     sql_file_path = os.path.join(os.path.dirname(__file__), 'init_db.sql')
     
@@ -105,18 +97,4 @@ def init_database():
     
     print(f"Executing SQL script: {sql_file_path}")
     execute_sql_file(sql_file_path)
-
-if __name__ == "__main__":
-    # Get database type from environment
-    db_type = os.environ.get('DB_TYPE', 'sqlite').lower()
-    
-    if db_type == 'postgres':
-        print(f"Initializing PostgreSQL database on {os.environ.get('POSTGRES_HOST', 'db')}:{os.environ.get('POSTGRES_PORT', '5432')}...")
-    else:
-        db_path = os.environ.get("DB_PATH", "data/dashboard.db")
-        print(f"Initializing SQLite database at {db_path}...")
-    
-    # Initialize database using SQL script
-    init_database()
-    
     print("Database initialization complete.")

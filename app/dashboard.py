@@ -25,7 +25,7 @@ from database.db_manager import DatabaseManager
 
 # Import agent manager
 from agents.agent_manager import create_agent_manager, AgentManager
-
+from .utils import load_instruction_from_file  # Fixed
 
 # Set page configuration
 st.set_page_config(
@@ -53,20 +53,38 @@ def process_agent_message(message):
     if not message.strip():
         return
     
-    # Add user message to history
-    st.session_state.chat_history.append({"role": "user", "content": message})
+    # Add user message to history with timestamp
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    st.session_state.chat_history.append({
+        "role": "user", 
+        "content": message,
+        "timestamp": timestamp,
+        "status": "sent"
+    })
     
     # Process with agent
     try:
         agent_manager = st.session_state.agent_manager
         response = agent_manager.run_agent(message)
-        agent_response = response["output"]
         
-        # Add agent response to history
-        st.session_state.chat_history.append({"role": "assistant", "content": agent_response})
+        # Add agent response to history with status and metadata
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        st.session_state.chat_history.append({
+            "role": "assistant", 
+            "content": response["output"],
+            "timestamp": timestamp,
+            "status": response["status"],
+            "metadata": response.get("metadata", {})
+        })
     except Exception as e:
-        error_msg = f"Error processing your request: {str(e)}"
-        st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
+        # Add error message to history
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        st.session_state.chat_history.append({
+            "role": "assistant", 
+            "content": f"Error processing your request: {str(e)}",
+            "timestamp": timestamp,
+            "status": "error"
+        })
 
 
 # Main dashboard layout
@@ -352,6 +370,7 @@ def render_agent_interface_page(db_manager):
     """Render the agent interface page."""
     st.header("Agent Interface")
     
+    # Introduction and instructions
     st.write("""
     Use this interface to interact with the dashboard agent. You can:
     - Ask questions about the dashboard data
@@ -360,12 +379,13 @@ def render_agent_interface_page(db_manager):
     - Request to add or update information
     """)
     
-    # File upload section
-    st.subheader("Upload Files")
+    # Create two columns - one for chat, one for file uploads
+    chat_col, upload_col = st.columns([3, 1])
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
+    with upload_col:
+        st.subheader("Upload Files")
+        
+        # Excel file upload
         uploaded_excel = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
         
         if uploaded_excel:
@@ -380,8 +400,8 @@ def render_agent_interface_page(db_manager):
             
             # Add a message to the chat about the uploaded file
             process_agent_message(f"I've uploaded an Excel file called {uploaded_excel.name}. Please process it. The file is saved at {excel_path}")
-    
-    with col2:
+        
+        # Word document upload
         uploaded_doc = st.file_uploader("Upload Word Document", type=["docx"])
         
         if uploaded_doc:
@@ -397,25 +417,108 @@ def render_agent_interface_page(db_manager):
             # Add a message to the chat about the uploaded file
             process_agent_message(f"I've uploaded a document file called {uploaded_doc.name}. Please process it. The file is saved at {doc_path}")
     
-    # Chat interface
-    st.subheader("Chat with Agent")
-    
-    # Display chat history
-    chat_container = st.container()
-    
-    with chat_container:
-        for message in st.session_state.chat_history:
-            if message["role"] == "user":
-                st.markdown(f"**You:** {message['content']}")
-            else:
-                st.markdown(f"**Agent:** {message['content']}")
-    
-    # Input for new message
-    user_message = st.text_area("Type your message", key="agent_input")
-    
-    if st.button("Send", key="send_button"):
-        process_agent_message(user_message)
-        st.experimental_rerun()
+    with chat_col:
+        # Chat interface
+        st.subheader("Chat with Dashboard Assistant")
+        
+        # Chat display area with custom styling
+        chat_container = st.container()
+        
+        # Apply custom CSS for better chat bubble styling
+        st.markdown("""
+        <style>
+        .user-bubble {
+            background-color: #e6f7ff;
+            border-radius: 15px;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-bottom-right-radius: 5px;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: 10px;
+        }
+        .assistant-bubble {
+            background-color: #f0f0f0;
+            border-radius: 15px;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-bottom-left-radius: 5px;
+            max-width: 80%;
+            margin-right: auto;
+            margin-left: 10px;
+        }
+        .timestamp {
+            font-size: 0.7em;
+            color: #888;
+            text-align: right;
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Display chat in a scrollable container
+        with chat_container:
+            st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+            for message in st.session_state.chat_history:
+                if message["role"] == "user":
+                    st.markdown(f"""
+                    <div class="user-bubble">
+                        <b>You:</b> {message['content']}
+                        <div class="timestamp">{message.get('timestamp', '')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    # Determine if there was an error
+                    bubble_style = "assistant-bubble"
+                    if message.get("status") == "error":
+                        bubble_style += " error-message"
+                    
+                    st.markdown(f"""
+                    <div class="{bubble_style}">
+                        <b>Assistant:</b> {message['content']}
+                        <div class="timestamp">{message.get('timestamp', '')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Input for new message with better styling
+        st.markdown("<hr>", unsafe_allow_html=True)
+        
+        # Chat input and send button side by side
+        message_col, button_col = st.columns([4, 1])
+        
+        with message_col:
+            user_message = st.text_area("Message", key="agent_input", placeholder="Type your message here...", height=80)
+        
+        with button_col:
+            st.write("")  # Add some spacing
+            st.write("")  # Add some spacing
+            send_pressed = st.button("Send", key="send_button", use_container_width=True)
+        
+        # Handle enter key press for sending (using JavaScript)
+        st.markdown("""
+        <script>
+        const textarea = document.querySelector('textarea[aria-label="Message"]');
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const button = document.querySelector('button:contains("Send")');
+                button.click();
+            }
+        });
+        </script>
+        """, unsafe_allow_html=True)
+        
+        if send_pressed and user_message:
+            process_agent_message(user_message)
+            st.experimental_rerun()
 
 
 # Run the app

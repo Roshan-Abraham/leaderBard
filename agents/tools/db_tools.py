@@ -1,277 +1,242 @@
 """
-Database tools for agents to interact with the SQLite database.
+Database tools for agents using Google ADK framework.
 """
 from typing import List, Dict, Any, Optional
-from langchain.tools import BaseTool
-from langchain.pydantic_v1 import BaseModel, Field
 import sys
 import os
+from google.adk.agents import LlmAgent
+from google.adk.tools import FunctionTool
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from database.db_manager import DatabaseManager
+from .utils import load_instruction_from_file
 
 # Initialize database manager
 db_manager = DatabaseManager()
 
-
 # User Management Tools
-class AddUserInput(BaseModel):
-    username: str = Field(..., description="Unique username for the user")
-    email: Optional[str] = Field(None, description="User's email address")
-    full_name: Optional[str] = Field(None, description="User's full name")
-    profile_data: Optional[Dict[str, Any]] = Field(None, description="Additional profile information")
-
-
-class AddUserTool(BaseTool):
-    name = "add_user"
-    description = "Add a new user to the database"
-    args_schema = AddUserInput
-
-    def _run(self, username: str, email: Optional[str] = None, 
+def add_user(username: str, email: Optional[str] = None, 
              full_name: Optional[str] = None, profile_data: Optional[Dict[str, Any]] = None) -> int:
-        """Add a new user to the database."""
-        return db_manager.add_user(username, email, full_name, profile_data)
+    """Add a new user to the database.
+    
+    Args:
+        username: Unique username for the user
+        email: User's email address
+        full_name: User's full name
+        profile_data: Additional profile information
+        
+    Returns:
+        User ID
+    """
+    return db_manager.add_user(username, email, full_name, profile_data)
 
+def update_user_score(user_id: int, points: int) -> str:
+    """Update a user's score by adding points.
+    
+    Args:
+        user_id: User ID
+        points: Points to add to user's score
+        
+    Returns:
+        Confirmation message
+    """
+    db_manager.update_user_score(user_id, points)
+    return f"Updated score for user {user_id} by adding {points} points"
 
-class UpdateUserScoreInput(BaseModel):
-    user_id: int = Field(..., description="User ID")
-    points: int = Field(..., description="Points to add to user's score")
+def get_user(user_id: int) -> Dict:
+    """Get user details by ID.
+    
+    Args:
+        user_id: User ID
+        
+    Returns:
+        User details
+    """
+    user = db_manager.get_user(user_id)
+    if not user:
+        return {"error": f"User with ID {user_id} not found"}
+    return user
 
-
-class UpdateUserScoreTool(BaseTool):
-    name = "update_user_score"
-    description = "Update a user's score by adding points"
-    args_schema = UpdateUserScoreInput
-
-    def _run(self, user_id: int, points: int) -> None:
-        """Update a user's score."""
-        db_manager.update_user_score(user_id, points)
-        return f"Updated score for user {user_id} by adding {points} points"
-
-
-class GetUserInput(BaseModel):
-    user_id: int = Field(..., description="User ID")
-
-
-class GetUserTool(BaseTool):
-    name = "get_user"
-    description = "Get user details by ID"
-    args_schema = GetUserInput
-
-    def _run(self, user_id: int) -> Dict:
-        """Get user details."""
-        user = db_manager.get_user(user_id)
-        if not user:
-            return {"error": f"User with ID {user_id} not found"}
-        return user
-
-
-class SearchUsersInput(BaseModel):
-    query: str = Field(..., description="Search query for username, email, or full name")
-    limit: int = Field(10, description="Maximum number of results to return")
-
-
-class SearchUsersTool(BaseTool):
-    name = "search_users"
-    description = "Search for users by username, email, or full name"
-    args_schema = SearchUsersInput
-
-    def _run(self, query: str, limit: int = 10) -> List[Dict]:
-        """Search for users."""
-        return db_manager.search_users(query, limit)
-
+def search_users(query: str, limit: int = 10) -> List[Dict]:
+    """Search for users by username, email, or full name.
+    
+    Args:
+        query: Search query
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of matching users
+    """
+    return db_manager.search_users(query, limit)
 
 # Group Management Tools
-class AddGroupInput(BaseModel):
-    name: str = Field(..., description="Group name")
-    description: Optional[str] = Field(None, description="Group description")
+def add_group(name: str, description: Optional[str] = None) -> int:
+    """Add a new group to the database.
+    
+    Args:
+        name: Group name
+        description: Group description
+        
+    Returns:
+        Group ID
+    """
+    return db_manager.add_group(name, description)
 
+def add_user_to_group(user_id: int, group_id: int, role: str = "member") -> str:
+    """Add a user to a group.
+    
+    Args:
+        user_id: User ID
+        group_id: Group ID
+        role: User's role in the group
+        
+    Returns:
+        Confirmation message
+    """
+    db_manager.add_user_to_group(user_id, group_id, role)
+    return f"Added user {user_id} to group {group_id} with role '{role}'"
 
-class AddGroupTool(BaseTool):
-    name = "add_group"
-    description = "Add a new group to the database"
-    args_schema = AddGroupInput
+def get_group(group_id: int) -> Dict:
+    """Get group details by ID.
+    
+    Args:
+        group_id: Group ID
+        
+    Returns:
+        Group details
+    """
+    group = db_manager.get_group(group_id)
+    if not group:
+        return {"error": f"Group with ID {group_id} not found"}
+    return group
 
-    def _run(self, name: str, description: Optional[str] = None) -> int:
-        """Add a new group to the database."""
-        return db_manager.add_group(name, description)
-
-
-class AddUserToGroupInput(BaseModel):
-    user_id: int = Field(..., description="User ID")
-    group_id: int = Field(..., description="Group ID")
-    role: str = Field("member", description="User's role in the group")
-
-
-class AddUserToGroupTool(BaseTool):
-    name = "add_user_to_group"
-    description = "Add a user to a group"
-    args_schema = AddUserToGroupInput
-
-    def _run(self, user_id: int, group_id: int, role: str = "member") -> None:
-        """Add a user to a group."""
-        db_manager.add_user_to_group(user_id, group_id, role)
-        return f"Added user {user_id} to group {group_id} with role '{role}'"
-
-
-class GetGroupInput(BaseModel):
-    group_id: int = Field(..., description="Group ID")
-
-
-class GetGroupTool(BaseTool):
-    name = "get_group"
-    description = "Get group details by ID"
-    args_schema = GetGroupInput
-
-    def _run(self, group_id: int) -> Dict:
-        """Get group details."""
-        group = db_manager.get_group(group_id)
-        if not group:
-            return {"error": f"Group with ID {group_id} not found"}
-        return group
-
-
-class SearchGroupsInput(BaseModel):
-    query: str = Field(..., description="Search query for group name or description")
-    limit: int = Field(10, description="Maximum number of results to return")
-
-
-class SearchGroupsTool(BaseTool):
-    name = "search_groups"
-    description = "Search for groups by name or description"
-    args_schema = SearchGroupsInput
-
-    def _run(self, query: str, limit: int = 10) -> List[Dict]:
-        """Search for groups."""
-        return db_manager.search_groups(query, limit)
-
+def search_groups(query: str, limit: int = 10) -> List[Dict]:
+    """Search for groups by name or description.
+    
+    Args:
+        query: Search query
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of matching groups
+    """
+    return db_manager.search_groups(query, limit)
 
 # Activity Management Tools
-class AddActivityInput(BaseModel):
-    user_id: int = Field(..., description="User ID")
-    activity_type: str = Field(..., description="Type of activity")
-    description: str = Field(..., description="Description of the activity")
-    points: int = Field(0, description="Points earned from the activity")
-    group_id: Optional[int] = Field(None, description="Group ID if the activity is associated with a group")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
-
-
-class AddActivityTool(BaseTool):
-    name = "add_activity"
-    description = "Add a new activity for a user and optionally a group"
-    args_schema = AddActivityInput
-
-    def _run(self, user_id: int, activity_type: str, description: str,
-             points: int = 0, group_id: Optional[int] = None,
-             metadata: Optional[Dict[str, Any]] = None) -> int:
-        """Add a new activity."""
-        return db_manager.add_activity(user_id, activity_type, description, points, group_id, metadata)
-
+def add_activity(user_id: int, activity_type: str, description: str,
+                 points: int = 0, group_id: Optional[int] = None,
+                 metadata: Optional[Dict[str, Any]] = None) -> int:
+    """Add a new activity for a user and optionally a group.
+    
+    Args:
+        user_id: User ID
+        activity_type: Type of activity
+        description: Description of the activity
+        points: Points earned from the activity
+        group_id: Group ID if the activity is associated with a group
+        metadata: Additional metadata
+        
+    Returns:
+        Activity ID
+    """
+    return db_manager.add_activity(user_id, activity_type, description, points, group_id, metadata)
 
 # Dashboard Query Tools
-class GetLeaderboardUsersInput(BaseModel):
-    limit: int = Field(10, description="Number of users to return")
+def get_leaderboard_users(limit: int = 10) -> List[Dict]:
+    """Get top users for leaderboard.
+    
+    Args:
+        limit: Number of users to return
+        
+    Returns:
+        List of top users
+    """
+    return db_manager.get_leaderboard_users(limit)
 
+def get_leaderboard_groups(limit: int = 10) -> List[Dict]:
+    """Get top groups for leaderboard.
+    
+    Args:
+        limit: Number of groups to return
+        
+    Returns:
+        List of top groups
+    """
+    return db_manager.get_leaderboard_groups(limit)
 
-class GetLeaderboardUsersTool(BaseTool):
-    name = "get_leaderboard_users"
-    description = "Get top users for leaderboard"
-    args_schema = GetLeaderboardUsersInput
+def get_user_activities(user_id: int, limit: int = 10) -> List[Dict]:
+    """Get recent activities for a user.
+    
+    Args:
+        user_id: User ID
+        limit: Number of activities to return
+        
+    Returns:
+        List of recent user activities
+    """
+    return db_manager.get_recent_user_activities(user_id, limit)
 
-    def _run(self, limit: int = 10) -> List[Dict]:
-        """Get top users for leaderboard."""
-        return db_manager.get_leaderboard_users(limit)
+def get_group_activities(group_id: int, limit: int = 10) -> List[Dict]:
+    """Get recent activities for a group.
+    
+    Args:
+        group_id: Group ID
+        limit: Number of activities to return
+        
+    Returns:
+        List of recent group activities
+    """
+    return db_manager.get_recent_group_activities(group_id, limit)
 
+def get_user_timeline(user_id: int) -> List[Dict]:
+    """Get activity timeline for a user.
+    
+    Args:
+        user_id: User ID
+        
+    Returns:
+        User activities timeline
+    """
+    return db_manager.get_user_activities_timeline(user_id)
 
-class GetLeaderboardGroupsInput(BaseModel):
-    limit: int = Field(10, description="Number of groups to return")
+def get_group_timeline(group_id: int) -> List[Dict]:
+    """Get activity timeline for a group.
+    
+    Args:
+        group_id: Group ID
+        
+    Returns:
+        Group activities timeline
+    """
+    return db_manager.get_group_activities_timeline(group_id)
 
-
-class GetLeaderboardGroupsTool(BaseTool):
-    name = "get_leaderboard_groups"
-    description = "Get top groups for leaderboard"
-    args_schema = GetLeaderboardGroupsInput
-
-    def _run(self, limit: int = 10) -> List[Dict]:
-        """Get top groups for leaderboard."""
-        return db_manager.get_leaderboard_groups(limit)
-
-
-class GetUserActivitiesInput(BaseModel):
-    user_id: int = Field(..., description="User ID")
-    limit: int = Field(10, description="Number of activities to return")
-
-
-class GetUserActivitiesTool(BaseTool):
-    name = "get_user_activities"
-    description = "Get recent activities for a user"
-    args_schema = GetUserActivitiesInput
-
-    def _run(self, user_id: int, limit: int = 10) -> List[Dict]:
-        """Get recent user activities."""
-        return db_manager.get_recent_user_activities(user_id, limit)
-
-
-class GetGroupActivitiesInput(BaseModel):
-    group_id: int = Field(..., description="Group ID")
-    limit: int = Field(10, description="Number of activities to return")
-
-
-class GetGroupActivitiesTool(BaseTool):
-    name = "get_group_activities"
-    description = "Get recent activities for a group"
-    args_schema = GetGroupActivitiesInput
-
-    def _run(self, group_id: int, limit: int = 10) -> List[Dict]:
-        """Get recent group activities."""
-        return db_manager.get_recent_group_activities(group_id, limit)
-
-
-class GetUserTimelineInput(BaseModel):
-    user_id: int = Field(..., description="User ID")
-
-
-class GetUserTimelineTool(BaseTool):
-    name = "get_user_timeline"
-    description = "Get activity timeline for a user"
-    args_schema = GetUserTimelineInput
-
-    def _run(self, user_id: int) -> List[Dict]:
-        """Get user activities timeline."""
-        return db_manager.get_user_activities_timeline(user_id)
-
-
-class GetGroupTimelineInput(BaseModel):
-    group_id: int = Field(..., description="Group ID")
-
-
-class GetGroupTimelineTool(BaseTool):
-    name = "get_group_timeline"
-    description = "Get activity timeline for a group"
-    args_schema = GetGroupTimelineInput
-
-    def _run(self, group_id: int) -> List[Dict]:
-        """Get group activities timeline."""
-        return db_manager.get_group_activities_timeline(group_id)
-
-
-# List of all database tools
+# Create function tools for ADK
 DB_TOOLS = [
-    AddUserTool(),
-    UpdateUserScoreTool(),
-    GetUserTool(),
-    SearchUsersTool(),
-    AddGroupTool(),
-    AddUserToGroupTool(),
-    GetGroupTool(),
-    SearchGroupsTool(),
-    AddActivityTool(),
-    GetLeaderboardUsersTool(),
-    GetLeaderboardGroupsTool(),
-    GetUserActivitiesTool(),
-    GetGroupActivitiesTool(),
-    GetUserTimelineTool(),
-    GetGroupTimelineTool()
+    FunctionTool(add_user, "add_user", "Add a new user to the database"),
+    FunctionTool(update_user_score, "update_user_score", "Update a user's score by adding points"),
+    FunctionTool(get_user, "get_user", "Get user details by ID"),
+    FunctionTool(search_users, "search_users", "Search for users by username, email, or full name"),
+    FunctionTool(add_group, "add_group", "Add a new group to the database"),
+    FunctionTool(add_user_to_group, "add_user_to_group", "Add a user to a group"),
+    FunctionTool(get_group, "get_group", "Get group details by ID"),
+    FunctionTool(search_groups, "search_groups", "Search for groups by name or description"),
+    FunctionTool(add_activity, "add_activity", "Add a new activity for a user and optionally a group"),
+    FunctionTool(get_leaderboard_users, "get_leaderboard_users", "Get top users for leaderboard"),
+    FunctionTool(get_leaderboard_groups, "get_leaderboard_groups", "Get top groups for leaderboard"),
+    FunctionTool(get_user_activities, "get_user_activities", "Get recent activities for a user"),
+    FunctionTool(get_group_activities, "get_group_activities", "Get recent activities for a group"),
+    FunctionTool(get_user_timeline, "get_user_timeline", "Get activity timeline for a user"),
+    FunctionTool(get_group_timeline, "get_group_timeline", "Get activity timeline for a group")
 ]
+
+# Create the database agent
+db_agent = LlmAgent(
+    name="DatabaseAgent",
+    model="gemini-2.0-flash-001",
+    instruction=load_instruction_from_file("db_agent_instruction.txt"),
+    description="Specialized agent for database operations on the dashboard system",
+    tools=DB_TOOLS,
+    output_key="db_result"
+)

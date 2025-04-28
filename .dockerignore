@@ -1,0 +1,38 @@
+# Docker ignore file
+
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+
+# Data files (persistent data should be in volumes)
+data/
+uploads/
+
+# Development
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+docs/
+README.md
+
+# Deployment files
+docker-compose*.yml
+Dockerfile*
+
+# System files
+.DS_Store
+Thumbs.db

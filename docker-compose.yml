@@ -1,0 +1,34 @@
+
+services:
+  dashboard:
+    build: .
+    container_name: streamlit-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/data
+    environment:
+      - DB_PATH=/data/dashboard.db
+      # Add any Google Cloud credentials as needed
+      # - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/google-credentials.json
+    depends_on:
+      - db
+    restart: unless-stopped
+    command: ["/bin/bash", "-c", "python database/init_db.py && streamlit run app/dashboard.py"]
+
+  # PostgreSQL database
+  db:
+    image: postgres:14
+    container_name: dashboard-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=dashboard_password
+      - POSTGRES_USER=dashboard_user
+      - POSTGRES_DB=dashboard
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
